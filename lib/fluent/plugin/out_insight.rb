@@ -19,8 +19,9 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
   config_param :port,        :integer, :default => 20000
   config_param :protocol,    :string,  :default => 'tcp'
   config_param :max_retries, :integer, :default => 3
-  config_param :tags,        :string,  :default => nil
-  config_param :prefix,      :string,  :default => nil
+  config_param :tags,        :string,  :default => ''
+  config_param :prefix,      :string,  :default => ''
+  config_param :default,     :string,  :default => 'default'
   config_param :api_key
   config_param :logset_id
   config_param :region
@@ -127,8 +128,12 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
         token = @tokens[record['log']]
         prefix = @prefix % symbolized_tags
         send_insight(token,  "#{prefix} #{message}")
+      elsif @tokens.key?(@default)
+        token = @tokens[@default]
+        prefix = @prefix % symbolized_tags
+        send_insight(token,  "#{prefix} #{message}")
       else
-        log.debug "No token found for #{record['log']}"
+        log.debug "No token found for #{record['log']} and default log doesn't exist"
       end
     end
   end
