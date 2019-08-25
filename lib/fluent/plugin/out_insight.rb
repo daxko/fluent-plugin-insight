@@ -22,6 +22,7 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
   config_param :tags,        :string,  :default => ''
   config_param :prefix,      :string,  :default => ''
   config_param :default,     :string,  :default => 'default'
+  config_param :key,         :string,  :default => 'log'
   config_param :api_key
   config_param :logset_id
   config_param :region
@@ -37,7 +38,7 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
     threads = []
     @tokens = Hash.new
     mutex = Mutex.new
-    if logset_body.key?('logset')
+    if logset_body.instance_of?(Hash) and logset_body.key?('logset')
       logset_info = logset_body['logset']
       if logset_info.key?('logs_info')
         logs_info = logset_info['logs_info']
@@ -74,13 +75,13 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
     if response.code == "200"
       return JSON.parse(response.body)
     end
-      log.error "Request was failed HTTP #{response.code}: \n#{response.body}"
+    log.error "Request was failed HTTP #{response.code}: \n#{response.body}"
   end
 
   def insight_log_token(url)
     log_body = insight_rest_request(url)
-    if log_body.key?('log')
-      log_info = log_body['log']
+    if log_body.key?(@key)
+      log_info = log_body[@key]
       if log_info.key?('tokens')
         log.info "Found log #{log_info['name']}"
         return log_info['name'], log_info['tokens'][0]
@@ -124,8 +125,8 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
         @insight_tags[k] = record[k]
       }
       symbolized_tags = @insight_tags.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
-      if @tokens.key?(record['log'])
-        token = @tokens[record['log']]
+      if @tokens.key?(record[@key])
+        token = @tokens[record[@key]]
         prefix = @prefix % symbolized_tags
         send_insight(token,  "#{prefix} #{message}")
       elsif @tokens.key?(@default)
@@ -133,7 +134,7 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
         prefix = @prefix % symbolized_tags
         send_insight(token,  "#{prefix} #{message}")
       else
-        log.debug "No token found for #{record['log']} and default log doesn't exist"
+        log.debug "No token found for #{record[@key]} and default log doesn't exist"
       end
     end
   end
