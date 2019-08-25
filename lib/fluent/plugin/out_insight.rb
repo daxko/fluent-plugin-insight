@@ -23,6 +23,7 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
   config_param :prefix,      :string,  :default => ''
   config_param :default,     :string,  :default => 'default'
   config_param :key,         :string,  :default => 'log'
+  config_param :message,     :string,  :default => 'message'
   config_param :api_key
   config_param :logset_id
   config_param :region
@@ -119,7 +120,7 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
     return if @tokens.empty?
     chunk.msgpack_each do |(tag, time, record)|
       next unless record.is_a? Hash
-      message = (record.delete('message')&.to_s&.rstrip || '')
+      message = (record.delete(@message)&.to_s&.rstrip || '')
       next if message.empty?
       @insight_tags.each { |k,v|
         @insight_tags[k] = record[k]

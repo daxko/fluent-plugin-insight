@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name          = "fluent-plugin-insight"
-  spec.version       = "0.0.3"
+  spec.version       = "0.0.5"
   spec.authors       = ["AndrewChubatiuk"]
   spec.email         = ["ops@tweddle.com"]
   spec.summary       = "InsightOPS output plugin for Fluent event collector"
