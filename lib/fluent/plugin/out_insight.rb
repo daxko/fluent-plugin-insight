@@ -15,18 +15,28 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
   INSIGHT_LOGSETS_TEMPLATE = "/management/logsets/%{logset_id}"
   THREAD_COUNT = 4
 
+  # Region to send logs to (us || eu)
+  config_param :region,       :string,  :default => 'us'
+  # If true an SSL connection is created
   config_param :use_ssl,     :bool,    :default => true
+  # Port to send TCP data on
   config_param :port,        :integer, :default => 20000
+  # Use tcp or udp?
   config_param :protocol,    :string,  :default => 'tcp'
   config_param :max_retries, :integer, :default => 3
+  # FIX ME
   config_param :tags,        :string,  :default => ''
-  config_param :prefix,      :string,  :default => ''
+  # FIX ME
+  config_param :prefix,       :string,  :default => ''
+  # Default log name to use
   config_param :default,     :string,  :default => 'default'
-  config_param :key,         :string,  :default => 'log'
+  # The key that the log_name will be contained in, if not set teh default is used.
+  config_param :log_key,     :string,  :default => 'log_name'
   config_param :message,     :string,  :default => 'message'
+  # InsighOPS API Key
   config_param :api_key
+  # InsightOPS logset id that log name is contained in
   config_param :logset_id
-  config_param :region
 
   def configure(conf)
     super
@@ -81,8 +91,8 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
 
   def insight_log_token(url)
     log_body = insight_rest_request(url)
-    if log_body.key?(@key)
-      log_info = log_body[@key]
+    if log_body.key?('log')
+      log_info = log_body['log']
       if log_info.key?('tokens')
         log.info "Found log #{log_info['name']}"
         return log_info['name'], log_info['tokens'][0]
@@ -119,24 +129,26 @@ class Fluent::InsightOutput < Fluent::BufferedOutput
   def write(chunk)
     return if @tokens.empty?
     chunk.msgpack_each do |(tag, time, record)|
-      next unless record.is_a? Hash
-      message = (record.delete(@message)&.to_s&.rstrip || '')
-      next if message.empty?
-      @insight_tags.each { |k,v|
-        @insight_tags[k] = record[k]
-      }
-      symbolized_tags = @insight_tags.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
-      if @tokens.key?(record[@key])
-        token = @tokens[record[@key]]
-        prefix = @prefix % symbolized_tags
-        send_insight(token,  "#{prefix} #{message}")
-      elsif @tokens.key?(@default)
+      if @tokens.key?(@default)
         token = @tokens[@default]
-        prefix = @prefix % symbolized_tags
-        send_insight(token,  "#{prefix} #{message}")
       else
-        log.debug "No token found for #{record[@key]} and default log doesn't exist"
+        log.error "No token found for default log!"
       end
+
+      if record.is_a? String
+        message = record
+      elsif record.is_a? Hash
+        if record.key?(@log_key) && @tokens[record[@log_key]]
+          token = @tokens[record[@log_key]]
+          log.debug "Changing token to #{token}"
+          record.delete(@log_key)
+        end
+        message = record.to_json
+      else
+        next
+      end
+
+      send_insight(token,  "#{message}")
     end
   end
 
